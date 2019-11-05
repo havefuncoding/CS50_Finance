@@ -123,7 +123,7 @@ def quote():
         # Quote response example, {'name': 'Apple, Inc.', 'price': 257.955, 'symbol': 'AAPL'}
         quote = lookup(request.form.get("symbol"))
         if not quote:
-            return apology("must provide symbol")
+            return apology("invalid symbol")                # Return error if symbol missing or invalid
         else:
             return render_template("quote.html", company=quote['name'], price=quote['price'], symbol=quote['symbol'])
 
