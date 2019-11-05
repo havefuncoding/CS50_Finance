@@ -51,13 +51,62 @@ def index():
 @login_required
 def buy():
     """Buy shares of stock"""
+
     if request.method == "POST":
-        # display form, get stock, number of shares
-        # add stock to user's portfolio
-        # update cash
-        pass
+        stock = lookup(request.form.get("symbol"))
+        if not stock:
+            return apology("invalid symbol")
+
+        symbol = stock['symbol']                        # Get stock symbol
+        price = stock['price']
+        shares = int(request.form.get("shares"))        # Get shares count
+        cost_to_buy = stock['price'] * shares           # Calculate cost to buy
+        user_id = session["user_id"]                     # Get user id from session
+        user = db.execute("SELECT * FROM users WHERE id = :user_id", user_id=user_id) # Get user object
+        available_funds = user[0]['cash']               # Get user available funds
+
+        if available_funds < cost_to_buy:               # Return error if insufficient funds
+            return apology("insufficient funds")
+
+        # Log transaction
+        transaction_id = db.execute("INSERT INTO transactions (symbol, price, count, buy_or_sell, user_id) VALUES (:symbol, :price, :count, :buy_or_sell, :user_id)",
+                                    symbol=symbol,
+                                    price=price,
+                                    count=shares,
+                                    buy_or_sell='b',
+                                    user_id=user_id)
+
+
+        # Check if current transaction stock in current portfolio
+        portfolio_stocks = db.execute("SELECT symbol FROM portfolios WHERE user_id = :user_id",
+                                        user_id=session["user_id"])
+
+        portfolio_stock_symbols = [stock['symbol'] for stock in portfolio_stocks]
+
+        # If existing in current portfolio, update shares count and latest transaction_if
+        if stock['symbol'] in portfolio_stock_symbols:
+            db.execute("UPDATE portfolios SET shares = shares + :count, transaction_id = :transaction_id WHERE user_id = :user_id and symbol = :symbol",
+                        count=shares,
+                        user_id=session['user_id'],
+                        transaction_id=transaction_id,
+                        symbol=symbol)
+
+        # Otherwise insert new entry for new stock in portfolio
+        else:
+            db.execute("INSERT INTO portfolios (user_id, transaction_id, symbol, shares) VALUES (:user_id, :transaction_id, :symbol,:shares)",
+                        user_id=session['user_id'],
+                        transaction_id=transaction_id,
+                        symbol=stock['symbol'],
+                        shares=shares)
+
+        # Update cash
+        db.execute("UPDATE users SET cash = cash - :cost WHERE id = :user_id", cost=cost_to_buy, user_id=session["user_id"])
+        return render_template("buy.html") # TODO - redirect to index page
+	# TODO - flash success message?
+
     else:
         return render_template("buy.html")
+
 
 @app.route("/check", methods=["GET"])
 def check():
