@@ -51,8 +51,13 @@ def index():
 @login_required
 def buy():
     """Buy shares of stock"""
-    return apology("TODO")
-
+    if request.method == "POST":
+        # display form, get stock, number of shares
+        # add stock to user's portfolio
+        # update cash
+        pass
+    else:
+        return render_template("buy.html")
 
 @app.route("/check", methods=["GET"])
 def check():
