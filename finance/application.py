@@ -125,7 +125,44 @@ def quote():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     """Register user"""
-    return apology("TODO")
+if request.method == "POST":
+	# POST : Submitting Form
+        if not request.form.get("username"):
+            return apology("must provide username")         # Return error if no username provided
+        else:
+            username = request.form.get("username")
+
+        if not request.form.get("password"):
+            return apology("must provide password")         # Return error if no password providee
+        else:
+            password = request.form.get("password")
+
+        if not request.form.get("confirmation") or request.form.get("confirmation") != request.form.get("password"):
+            return apology("passwords must match")          # Return error if password != confirmation
+        else:
+            confirmation = request.form.get("confirmation")
+
+        hashed_password = generate_password_hash(password)  # Otherwise hash password
+
+        is_new_user = len(db.execute(f"SELECT id FROM users WHERE username = '{username}'")) == 0
+        if not is_new_user:
+            return apology("username taken")                # Return error if username already in DB
+        else:
+            db.execute("INSERT INTO users(username, hash) VALUES(:username, :hash)",
+                        username=username, hash=hashed_password)
+
+            new_user = db.execute(f"SELECT id FROM users WHERE username = '{username}'")
+            if not new_user:
+                return apology("failed to add new user")    # Ensure user added to db
+            else:
+                new_user_id = new_user[0]['id']
+                session["user_id"] = new_user[0]['id']      # And add user session
+
+        return redirect(url_for("index"))                   # Then redirect back to index.html
+
+    # GET : Navigating to Register page
+    else:
+        return render_template("register.html")             # Navigate user to register page
 
 
 @app.route("/sell", methods=["GET", "POST"])
@@ -145,3 +182,12 @@ def errorhandler(e):
 # Listen for errors
 for code in default_exceptions:
     app.errorhandler(code)(errorhandler)
+
+
+
+
+##############################  - TESTING -  ######################################
+def print_exaggerated(print_value, print_note="LOOK! -> "):
+    print("\n\n\n\n\n")
+    print("************\n", print_note, print_value, "\n************")
+    print("\n\n\n\n\n")
