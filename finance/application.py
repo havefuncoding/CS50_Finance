@@ -120,10 +120,15 @@ def logout():
 def quote():
     """Get stock quote."""
     if request.method == "POST":
-        pass
+        # Quote response example, {'name': 'Apple, Inc.', 'price': 257.955, 'symbol': 'AAPL'}
+        quote = lookup(request.form.get("symbol"))
+        if not quote:
+            return apology("must provide symbol")
+        else:
+            return render_template("quote.html", company=quote['name'], price=quote['price'], symbol=quote['symbol'])
 
     else:
-        return render_template("quote.html") 
+        return render_template("quote.html")
 
 
 @app.route("/register", methods=["GET", "POST"])
