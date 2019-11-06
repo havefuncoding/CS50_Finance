@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Portfolio
+{% endblock %}
+
+{% block main %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Symbol</th>
+                <th scope="col">Name</th>
+                <th scope="col">Shares</th>
+                <th scope="col">Price</th>
+                <th scope="col">TOTAL</th>
+            </tr>
+        </thead>
+
+        <tbody>
+        {% for item in portfolio %}
+            <tr>
+                <td>{{ item['symbol'] }}</td>
+                <td>{{ item['name'] }}</td>
+                <td>{{ item['shares'] }}</td>
+                <td>{{ item['current_price'] }}</td>
+                <td>${{ item['paid_total'] }}</td>
+            </tr>
+        {% endfor %}
+            <tr>
+                <td>CASH</td>
+                <td colspan="3"></td>
+                <td>${{ cash_remaining }}</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <td colspan="4"></td>
+            <td>${{ sum_all }}</td>
+        </tfoot>
+    </table>
+{% endblock %}
+

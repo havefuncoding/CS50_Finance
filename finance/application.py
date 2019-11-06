@@ -45,17 +45,28 @@ if not os.environ.get("API_KEY"):
 @login_required
 def index():
     """Show portfolio of stocks"""
-    portfolio = []
-    # item = {"symbol": None,
-    #         "Name": None,
-    #         "Shares": 0,
-    #         "Price": 0,
-    #         "Total": 0
-    # }
+    user_id=session["user_id"]
+
+    cash_remaining = round(db.execute("SELECT cash FROM users WHERE id = :user_id",
+                                user_id = user_id)[0]['cash'], 2)
+
+    sum_all = cash_remaining
 
 
+    portfolio = db.execute("SELECT p.symbol, t.name, p.shares, p.paid_total " +
+                            "FROM portfolios p " +
+                                "left join transactions t on p.transaction_id = t.id "
+                            "WHERE p.user_id = :user_id",
+                            user_id = user_id)
 
-    return render_template("index.html", portfolio=portfolio)
+    for item in portfolio:
+        item['current_price'] = lookup(item['symbol'])['price']
+        sum_all += item['paid_total']
+
+    print_exaggerated(portfolio, "Portfolio")
+
+
+    return render_template("index.html", portfolio=portfolio, cash_remaining=cash_remaining, sum_all=sum_all)
 
 
 @app.route("/buy", methods=["GET", "POST"])
@@ -68,21 +79,27 @@ def buy():
         if not stock:
             return apology("invalid symbol")
 
-        symbol = stock['symbol']                        # Get stock symbol
-        price = stock['price']
-        shares = int(request.form.get("shares"))        # Get shares count
-        cost_to_buy = stock['price'] * shares           # Calculate cost to buy
-        user_id = session["user_id"]                     # Get user id from session
-        user = db.execute("SELECT * FROM users WHERE id = :user_id", user_id=user_id) # Get user object
-        available_funds = user[0]['cash']               # Get user available funds
+        symbol = stock['symbol']                        # Stock symbol
+        name = stock['name']                            # Stock name
+        price = stock['price']                          # Stock price
+        shares = int(request.form.get("shares"))        # Number of shares
+        cost_to_buy = stock['price'] * shares           # Cost to buy
+        user_id = session["user_id"]                    # User id
+        user = db.execute("SELECT * FROM users WHERE id = :user_id", user_id=user_id) # User object
+        available_funds = user[0]['cash']               # User available funds
+
+
+        print_exaggerated(user)
+        print(symbol, name, price, shares, cost_to_buy, user_id, user, available_funds)
 
         if available_funds < cost_to_buy:               # Return error if insufficient funds
             return apology("insufficient funds")
 
         # Log transaction
-        transaction_id = db.execute("INSERT INTO transactions (symbol, price, count, buy_or_sell, user_id) " +
-                                    "VALUES (:symbol, :price, :count, :buy_or_sell, :user_id)",
+        transaction_id = db.execute("INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) " +
+                                    "VALUES (:symbol, :name, :price, :count, :buy_or_sell, :user_id)",
                                     symbol=symbol,
+                                    name=name,
                                     price=price,
                                     count=shares,
                                     buy_or_sell='b',
@@ -117,7 +134,7 @@ def buy():
 
         # Update cash
         db.execute("UPDATE users SET cash = cash - :cost WHERE id = :user_id", cost=cost_to_buy, user_id=session["user_id"])
-        return render_template("buy.html") # TODO - redirect to index page
+        return render_template("index.html")
 
     else:
         return render_template("buy.html")
