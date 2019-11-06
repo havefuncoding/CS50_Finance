@@ -150,7 +150,8 @@ def check():
 def history():
     """Show history of transactions"""
 
-    transactions = db.execute("SELECT symbol, count, price, timestamp FROM transactions")
+    transactions = db.execute("SELECT symbol, count, price, timestamp FROM transactions WHERE user_id = :user_id",
+                              user_id = session["user_id"])
     for transaction in transactions:
         transaction['price_formatted'] = "{:.2f}".format(transaction['price'])
 
