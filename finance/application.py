@@ -48,23 +48,19 @@ def index():
     user_id=session["user_id"]
 
     cash_remaining = round(db.execute("SELECT cash FROM users WHERE id = :user_id",
-                                user_id = user_id)[0]['cash'], 2)
+                                user_id = user_id)[0]['cash'], 2)                   # Funds available
 
-    sum_all = cash_remaining
-
+    sum_all = cash_remaining                                                        # Add to running sum
 
     portfolio = db.execute("SELECT p.symbol, t.name, p.shares, p.paid_total " +
                             "FROM portfolios p " +
                                 "left join transactions t on p.transaction_id = t.id "
                             "WHERE p.user_id = :user_id",
-                            user_id = user_id)
+                            user_id = user_id)                                      # Get portfolio data
 
     for item in portfolio:
-        item['current_price'] = lookup(item['symbol'])['price']
-        sum_all += item['paid_total']
-
-    print_exaggerated(portfolio, "Portfolio")
-
+        item['current_price'] = lookup(item['symbol'])['price']                     # Add current/latest price
+        sum_all += item['paid_total']                                               # And add to sum, past paid amt
 
     return render_template("index.html", portfolio=portfolio, cash_remaining=cash_remaining, sum_all=sum_all)
 
@@ -88,8 +84,6 @@ def buy():
         user = db.execute("SELECT * FROM users WHERE id = :user_id", user_id=user_id) # User object
         available_funds = user[0]['cash']               # User available funds
 
-
-        print_exaggerated(user)
         print(symbol, name, price, shares, cost_to_buy, user_id, user, available_funds)
 
         if available_funds < cost_to_buy:               # Return error if insufficient funds
