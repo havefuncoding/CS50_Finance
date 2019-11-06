@@ -1,4 +1,4 @@
-import os
+vimport os
 import time
 
 from cs50 import SQL
@@ -60,10 +60,12 @@ def index():
 
     for item in portfolio:
         item['current_price'] = lookup(item['symbol'])['price']                     # Add current/latest price
-        item['paid_total'] = round(item['paid_total'], 2)
+        print_exaggerated("{:.2f}".format(item['paid_total']), "+++++++++++")
+        item['paid_total_formatted'] = "{:.2f}".format(item['paid_total'])
+
         sum_all += item['paid_total']                                               # And add to sum, past paid amt
 
-    return render_template("index.html", portfolio=portfolio, cash_remaining=cash_remaining, sum_all=sum_all)
+    return render_template("index.html", portfolio=portfolio, cash_remaining="{:.2f}".format(cash_remaining), sum_all="{:.2f}".format(sum_all))
 
 
 @app.route("/buy", methods=["GET", "POST"])
@@ -129,7 +131,7 @@ def buy():
 
         # Update cash
         db.execute("UPDATE users SET cash = cash - :cost WHERE id = :user_id", cost=cost_to_buy, user_id=session["user_id"])
-        return render_template("index.html")
+        return redirect("/")
 
     else:
         return render_template("buy.html")
@@ -145,8 +147,12 @@ def check():
 @login_required
 def history():
     """Show history of transactions"""
-    return apology("TODO")
 
+    transactions = db.execute("SELECT symbol, count, price, timestamp FROM transactions")
+    for transaction in transactions:
+        transaction['price_formatted'] = "{:.2f}".format(transaction['price'])
+
+    return render_template("history.html", transactions=transactions)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -292,7 +298,7 @@ def sell():
                                     symbol=symbol,
                                     name=name,
                                     price=price_per_share,
-                                    count=shares_to_sell,
+                                    count=shares_to_sell * -1,
                                     buy_or_sell='s',
                                     user_id=user_id)
 
