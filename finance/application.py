@@ -1,4 +1,4 @@
-vimport os
+import os
 import time
 
 from cs50 import SQL
@@ -131,6 +131,8 @@ def buy():
 
         # Update cash
         db.execute("UPDATE users SET cash = cash - :cost WHERE id = :user_id", cost=cost_to_buy, user_id=session["user_id"])
+
+        flash("Bought!")
         return redirect("/")
 
     else:
@@ -318,15 +320,12 @@ def sell():
                     earnings = earnings_on_sale,
                     user_id=user_id)
 
+        flash("Sold!")
 
         return redirect("/")
 
     else:
         return render_template("sell.html", symbols=symbols)
-
-
-
-
 
 def errorhandler(e):
     """Handle error"""
@@ -338,8 +337,6 @@ def errorhandler(e):
 # Listen for errors
 for code in default_exceptions:
     app.errorhandler(code)(errorhandler)
-
-
 
 
 ##############################  - TESTING -  ######################################
