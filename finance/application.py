@@ -60,6 +60,7 @@ def index():
 
     for item in portfolio:
         item['current_price'] = lookup(item['symbol'])['price']                     # Add current/latest price
+        item['paid_total'] = round(item['paid_total'], 2)
         sum_all += item['paid_total']                                               # And add to sum, past paid amt
 
     return render_template("index.html", portfolio=portfolio, cash_remaining=cash_remaining, sum_all=sum_all)
@@ -258,7 +259,67 @@ def register():
 @login_required
 def sell():
     """Sell shares of stock"""
-    return apology("TODO")
+    user_id = session["user_id"]
+    data = db.execute("SELECT symbol FROM portfolios WHERE user_id = :user_id",
+                        user_id = user_id)
+    symbols = [item['symbol'] for item in data]             # Collect symbols for select dropdown menu
+
+    if request.method == "POST":
+        symbol = request.form.get("symbol")
+        shares_to_sell = int(request.form.get("shares"))
+        if not symbol or not shares_to_sell:                # Return error if inputs missing
+            return apology("invalid symbol/shares data")
+
+        shares_owned = db.execute("SELECT shares FROM portfolios " +
+                                "WHERE user_id = :user_id and symbol = :symbol",
+                                user_id = user_id,
+                                symbol = symbol)[0]['shares']
+
+        if shares_owned < shares_to_sell:
+            return apology("too many shares")               # Error if trying to sell more than owned
+
+
+        stock = lookup(symbol)                     # Get stock object
+
+        name = stock['name']                                # Stock name
+
+        price_per_share = stock['price']                    # Stock price per share
+        earnings_on_sale = price_per_share * shares_to_sell # Calculate earnings on sale
+
+        # Log transaction
+        transaction_id = db.execute("INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) " +
+                                    "VALUES (:symbol, :name, :price, :count, :buy_or_sell, :user_id)",
+                                    symbol=symbol,
+                                    name=name,
+                                    price=price_per_share,
+                                    count=shares_to_sell,
+                                    buy_or_sell='s',
+                                    user_id=user_id)
+
+
+        # Update shares in portfolios
+        db.execute("UPDATE portfolios SET shares = shares - :count, transaction_id = :transaction_id, paid_total = paid_total - :earnings " +
+                        "WHERE user_id = :user_id and symbol = :symbol",
+                        count=shares_to_sell,
+                        user_id=session['user_id'],
+                        transaction_id=transaction_id,
+                        earnings=earnings_on_sale,
+                        symbol=symbol)
+
+
+        # Update cash
+        db.execute("UPDATE users SET cash = cash + :earnings WHERE id = :user_id",
+                    earnings = earnings_on_sale,
+                    user_id=user_id)
+
+
+        return redirect("/")
+
+    else:
+        return render_template("sell.html", symbols=symbols)
+
+
+
 
 
 def errorhandler(e):
