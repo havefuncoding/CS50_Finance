@@ -1,4 +1,5 @@
 import os
+import time
 
 from cs50 import SQL
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
@@ -44,7 +45,17 @@ if not os.environ.get("API_KEY"):
 @login_required
 def index():
     """Show portfolio of stocks"""
-    return apology("TODO")
+    portfolio = []
+    # item = {"symbol": None,
+    #         "Name": None,
+    #         "Shares": 0,
+    #         "Price": 0,
+    #         "Total": 0
+    # }
+
+
+
+    return render_template("index.html", portfolio=portfolio)
 
 
 @app.route("/buy", methods=["GET", "POST"])
@@ -69,7 +80,8 @@ def buy():
             return apology("insufficient funds")
 
         # Log transaction
-        transaction_id = db.execute("INSERT INTO transactions (symbol, price, count, buy_or_sell, user_id) VALUES (:symbol, :price, :count, :buy_or_sell, :user_id)",
+        transaction_id = db.execute("INSERT INTO transactions (symbol, price, count, buy_or_sell, user_id) " +
+                                    "VALUES (:symbol, :price, :count, :buy_or_sell, :user_id)",
                                     symbol=symbol,
                                     price=price,
                                     count=shares,
@@ -85,24 +97,27 @@ def buy():
 
         # If existing in current portfolio, update shares count and latest transaction_if
         if stock['symbol'] in portfolio_stock_symbols:
-            db.execute("UPDATE portfolios SET shares = shares + :count, transaction_id = :transaction_id WHERE user_id = :user_id and symbol = :symbol",
+            db.execute("UPDATE portfolios SET shares = shares + :count, transaction_id = :transaction_id, paid_total = paid_total + :cost " +
+                        "WHERE user_id = :user_id and symbol = :symbol",
                         count=shares,
                         user_id=session['user_id'],
                         transaction_id=transaction_id,
+                        cost=cost_to_buy,
                         symbol=symbol)
 
         # Otherwise insert new entry for new stock in portfolio
         else:
-            db.execute("INSERT INTO portfolios (user_id, transaction_id, symbol, shares) VALUES (:user_id, :transaction_id, :symbol,:shares)",
+            db.execute("INSERT INTO portfolios (user_id, transaction_id, symbol, shares, paid_total) " +
+                        "VALUES (:user_id, :transaction_id, :symbol, :shares, :paid_total)",
                         user_id=session['user_id'],
                         transaction_id=transaction_id,
                         symbol=stock['symbol'],
+                        paid_total=cost_to_buy,
                         shares=shares)
 
         # Update cash
         db.execute("UPDATE users SET cash = cash - :cost WHERE id = :user_id", cost=cost_to_buy, user_id=session["user_id"])
         return render_template("buy.html") # TODO - redirect to index page
-	# TODO - flash success message?
 
     else:
         return render_template("buy.html")
@@ -177,7 +192,7 @@ def quote():
         # Quote response example, {'name': 'Apple, Inc.', 'price': 257.955, 'symbol': 'AAPL'}
         quote = lookup(request.form.get("symbol"))
         if not quote:
-            return apology("invalid symbol")                # Return error if symbol missing or invalid
+            return apology("invalid symbol")
         else:
             return render_template("quote.html", company=quote['name'], price=quote['price'], symbol=quote['symbol'])
 
@@ -253,4 +268,5 @@ for code in default_exceptions:
 def print_exaggerated(print_value, print_note="LOOK! -> "):
     print("\n\n\n\n\n")
     print("************\n", print_note, print_value, "\n************")
+    time.sleep(1)
     print("\n\n\n\n\n")
