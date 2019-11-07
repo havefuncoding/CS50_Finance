@@ -148,7 +148,7 @@ def check():
     username_available = len(db.execute("SELECT username FROM users WHERE username = :username",
                                     username=username)) == 0
 
-    if not username_available or len(username) < 1:
+    if len(username) < 2 or not username_available:
         return jsonify(False)
     else:
         return jsonify(True)
