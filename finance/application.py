@@ -142,7 +142,16 @@ def buy():
 @app.route("/check", methods=["GET"])
 def check():
     """Return true if username available, else false, in JSON format"""
-    return jsonify("TODO")
+
+    username = request.args.get("username")
+
+    username_available = len(db.execute("SELECT username FROM users WHERE username = :username",
+                                    username=username)) == 0
+
+    if not username_available or len(username) < 1:
+        return jsonify(False)
+    else:
+        return jsonify(True)
 
 
 @app.route("/history")
@@ -245,7 +254,8 @@ def register():
 
         is_new_user = len(db.execute(f"SELECT id FROM users WHERE username = '{username}'")) == 0
         if not is_new_user:
-            return apology("username taken")                # Return error if username already in DB
+            print_exaggerated("DO NOTHING")
+            #return apology("username taken")                # Return error if username already in DB
         else:
             db.execute("INSERT INTO users(username, hash) VALUES(:username, :hash)",
                         username=username, hash=hashed_password)
