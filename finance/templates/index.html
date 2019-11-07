@@ -22,8 +22,8 @@
                 <td>{{ item['symbol'] }}</td>
                 <td>{{ item['name'] }}</td>
                 <td>{{ item['shares'] }}</td>
-                <td>{{ item['current_price'] }}</td>
-                <td>${{ item['paid_total'] }}</td>
+                <td>${{ item['current_price_formatted'] }}</td>
+                <td>${{ item['paid_total_formatted'] }}</td>
             </tr>
         {% endfor %}
             <tr>
@@ -38,4 +38,3 @@
         </tfoot>
     </table>
 {% endblock %}
-

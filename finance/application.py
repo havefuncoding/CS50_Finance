@@ -44,26 +44,37 @@ if not os.environ.get("API_KEY"):
 @app.route("/")
 @login_required
 def index():
-    """Show portfolio of stocks"""
+    """Show portfolio of stocks : Table displays
+    | Symbol | Name           | Shares | Price      | Total    |
+    | GOOGL  | Alphabet, Inc. | 2      | $1291.01   | $2582.02 |
+    | MSFT   | Microsoft Corp.| 5      | $144.06    | $720.30  |
+    | CASH   |                |        |            | $6697.68 |  # Cash remaining
+    ------------------------------------------------------------
+                                                      $10000.00   # Default balance 10K
+
+    Note that the 'Price' column reflects current market price and not price paid
+    And the 'Total' column reflects purchased market price (price paid)
+    """
+
+    # Get user id
     user_id=session["user_id"]
 
-    cash_remaining = round(db.execute("SELECT cash FROM users WHERE id = :user_id",
-                                user_id = user_id)[0]['cash'], 2)                   # Funds available
+    # Query for the cash (remaining) in user table for current session user
+    cash_remaining = db.execute(f"SELECT cash FROM users WHERE id = '{user_id}'")
+    cash_remaining = cash_remaining[0]['cash']  # Grab just the value from return format, [{'cash': #####}]
 
-    sum_all = cash_remaining                                                        # Add to running sum
+    # Query for the portfolio of current user
+    portfolio = db.execute(f"SELECT p.symbol, t.name, p.shares, p.paid_total FROM portfolios p left join transactions t on p.transaction_id = t.id WHERE p.user_id = '{user_id}'")
 
-    portfolio = db.execute("SELECT p.symbol, t.name, p.shares, p.paid_total " +
-                            "FROM portfolios p " +
-                                "left join transactions t on p.transaction_id = t.id "
-                            "WHERE p.user_id = :user_id",
-                            user_id = user_id)                                      # Get portfolio data
+    # Calculate cost of portfolio (total amount paid to purchase all stocks in portfolio)
+    portfolio_sum = 0
 
+    # Sum all balances, cash remaining + cash used (cost of all stock purchases)
+    sum_all = cash_remaining
     for item in portfolio:
-        item['current_price'] = lookup(item['symbol'])['price']                     # Add current/latest price
-        print_exaggerated("{:.2f}".format(item['paid_total']), "+++++++++++")
-        item['paid_total_formatted'] = "{:.2f}".format(item['paid_total'])
-
-        sum_all += item['paid_total']                                               # And add to sum, past paid amt
+        item['current_price_formatted'] = "{:.2f}".format(lookup(item['symbol'])['price'])      # Add formatted to 2 decimal
+        item['paid_total_formatted'] = "{:.2f}".format(item['paid_total'])                      # Add formatted to 2 decimal
+        sum_all += item['paid_total']
 
     return render_template("index.html", portfolio=portfolio, cash_remaining="{:.2f}".format(cash_remaining), sum_all="{:.2f}".format(sum_all))
 
@@ -72,69 +83,52 @@ def index():
 @login_required
 def buy():
     """Buy shares of stock"""
+    # Track current user
+    user_id = session["user_id"]
 
+    # If the method is POST, take the form arguments
     if request.method == "POST":
-        stock = lookup(request.form.get("symbol"))
+        stock = lookup(request.form.get("symbol"))      # Ensure stock object is vali
         if not stock:
             return apology("invalid symbol")
 
-        symbol = stock['symbol']                        # Stock symbol
-        name = stock['name']                            # Stock name
-        price = stock['price']                          # Stock price
-        shares = int(request.form.get("shares"))        # Number of shares
-        cost_to_buy = stock['price'] * shares           # Cost to buy
-        user_id = session["user_id"]                    # User id
-        user = db.execute("SELECT * FROM users WHERE id = :user_id", user_id=user_id) # User object
-        available_funds = user[0]['cash']               # User available funds
+        symbol = stock['symbol']                        # Extract the symbol from stock
+        name = stock['name']                            # Extract the company name
+        price = stock['price']                          # Extract the per-share price
+        shares = int(request.form.get("shares"))        # Extract the number of shares
+        cost_to_buy = stock['price'] * shares           # Calculate the cost to buy N shares
 
-        print(symbol, name, price, shares, cost_to_buy, user_id, user, available_funds)
+        # Query the DB for data of session user
+        user_id = session["user_id"]                    # Extract the current user id
+        user = db.execute(f"SELECT * FROM users WHERE id = {user_id}") # Store user info into object
+        available_funds = user[0]['cash']               # Extract the remaining cash of user
 
-        if available_funds < cost_to_buy:               # Return error if insufficient funds
+        if available_funds < cost_to_buy:               # Return error if cash insufficient to make purchase
             return apology("insufficient funds")
 
-        # Log transaction
-        transaction_id = db.execute("INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) " +
-                                    "VALUES (:symbol, :name, :price, :count, :buy_or_sell, :user_id)",
-                                    symbol=symbol,
-                                    name=name,
-                                    price=price,
-                                    count=shares,
-                                    buy_or_sell='b',
-                                    user_id=user_id)
+        # Log transaction, returns transaction id, retain this for future query use
+        transaction_id = db.execute(f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('{symbol}', '{name}', {price}, {shares}, 'b', {user_id})")
 
+        # Get list of all stocks in user portfolio
+        portfolio_stocks = db.execute(f"SELECT symbol FROM portfolios WHERE user_id = {user_id}")
+        portfolio_stock_symbols = [stock['symbol'] for stock in portfolio_stocks]   # Extract just the symbols
 
-        # Check if current transaction stock in current portfolio
-        portfolio_stocks = db.execute("SELECT symbol FROM portfolios WHERE user_id = :user_id",
-                                        user_id=session["user_id"])
-
-        portfolio_stock_symbols = [stock['symbol'] for stock in portfolio_stocks]
-
-        # If existing in current portfolio, update shares count and latest transaction_if
+        # If added stock is not new (if stock pre-exists in user portfolio before lates transaction)
+        # Then update the purchased shares count and cost invested in purchase(s)
         if stock['symbol'] in portfolio_stock_symbols:
-            db.execute("UPDATE portfolios SET shares = shares + :count, transaction_id = :transaction_id, paid_total = paid_total + :cost " +
-                        "WHERE user_id = :user_id and symbol = :symbol",
-                        count=shares,
-                        user_id=session['user_id'],
-                        transaction_id=transaction_id,
-                        cost=cost_to_buy,
-                        symbol=symbol)
-
+            db.execute(f"UPDATE portfolios SET shares = shares + {shares}, transaction_id = {transaction_id}, paid_total = paid_total + {cost_to_buy} WHERE user_id = {user_id} and symbol = '{symbol}'")
         # Otherwise insert new entry for new stock in portfolio
         else:
-            db.execute("INSERT INTO portfolios (user_id, transaction_id, symbol, shares, paid_total) " +
-                        "VALUES (:user_id, :transaction_id, :symbol, :shares, :paid_total)",
-                        user_id=session['user_id'],
-                        transaction_id=transaction_id,
-                        symbol=stock['symbol'],
-                        paid_total=cost_to_buy,
-                        shares=shares)
+            db.execute(f"INSERT INTO portfolios (user_id, transaction_id, symbol, shares, paid_total) VALUES ({user_id}, {transaction_id}, '{symbol}', {shares}, {cost_to_buy})")
 
         # Update cash
-        db.execute("UPDATE users SET cash = cash - :cost WHERE id = :user_id", cost=cost_to_buy, user_id=session["user_id"])
+        db.execute(f"UPDATE users SET cash = cash - {cost_to_buy} WHERE id = {user_id}")
 
+        # Flash successful purchase message and redirect to index.html (page displaying table of user portfolio)
         flash("Bought!")
         return redirect("/")
 
+    # Else if the method is GET, if user navigated to page without submitting form, then simplay navigate to buy.html
     else:
         return render_template("buy.html")
 
@@ -143,15 +137,13 @@ def buy():
 def check():
     """Return true if username available, else false, in JSON format"""
 
+    # Check/verify the username proposed for new user
     username = request.args.get("username")
+    username_available = len(db.execute(f"SELECT username FROM users WHERE username = '{username}'")) == 0  # Check if in DB
+    status = False if len(username) < 2 or not username_available else True                                 # Add check for length
 
-    username_available = len(db.execute("SELECT username FROM users WHERE username = :username",
-                                    username=username)) == 0
-
-    if len(username) < 2 or not username_available:
-        return jsonify(False)
-    else:
-        return jsonify(True)
+    # Return boolean status of if username is valid and available
+    return jsonify(status)
 
 
 @app.route("/history")
@@ -159,11 +151,17 @@ def check():
 def history():
     """Show history of transactions"""
 
-    transactions = db.execute("SELECT symbol, count, price, timestamp FROM transactions WHERE user_id = :user_id",
-                              user_id = session["user_id"])
+    # Get user id from current session
+    user_id = session["user_id"]
+
+    # Get transactions for current user
+    transactions = db.execute(f"SELECT symbol, count, price, timestamp FROM transactions WHERE user_id = {user_id}")
+
+    # String-format 'price' data to 2 decimal places for html display
     for transaction in transactions:
         transaction['price_formatted'] = "{:.2f}".format(transaction['price'])
 
+    # Navigate to history page (containing list of transactions for current user)
     return render_template("history.html", transactions=transactions)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -185,8 +183,8 @@ def login():
             return apology("must provide password", 403)
 
         # Query database for username
-        rows = db.execute("SELECT * FROM users WHERE username = :username",
-                          username=request.form.get("username"))
+        username=request.form.get("username")
+        rows = db.execute(f"SELECT * FROM users WHERE username = '{username}'")
 
         # Ensure username exists and password is correct
         if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
@@ -218,14 +216,22 @@ def logout():
 @login_required
 def quote():
     """Get stock quote."""
+
+    # If user submitted form, verify form args and render error or data for submitted args
     if request.method == "POST":
+        # Store quote object
         # Quote response example, {'name': 'Apple, Inc.', 'price': 257.955, 'symbol': 'AAPL'}
         quote = lookup(request.form.get("symbol"))
+
+        # If quote is null, return error indicating symbol not valid
         if not quote:
             return apology("invalid symbol")
+
+        # Otherwise redirect to quote page with data
         else:
             return render_template("quote.html", company=quote['name'], price=quote['price'], symbol=quote['symbol'])
 
+    # If user navigated to page, render the form page
     else:
         return render_template("quote.html")
 
@@ -233,108 +239,84 @@ def quote():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     """Register user"""
+
+    # If user submitted form, verify forma args and render error or data for submitted args
     if request.method == "POST":
-	# POST : Submitting Form
-        if not request.form.get("username"):
-            return apology("must provide username")         # Return error if no username provided
-        else:
-            username = request.form.get("username")
+        # Extract form args into variables
+        username = request.form.get("username")
+        password = request.form.get("password")
+        confirm_password = request.form.get("confirmation")
 
-        if not request.form.get("password"):
-            return apology("must provide password")         # Return error if no password providee
-        else:
-            password = request.form.get("password")
+        # Return error if form submitted with missing fields
+        if not username or not password or not confirm_password:
+            return apology("missing field(s)")
 
-        if not request.form.get("confirmation") or request.form.get("confirmation") != request.form.get("password"):
-            return apology("passwords must match")          # Return error if password != confirmation
-        else:
-            confirmation = request.form.get("confirmation")
+        # Return error if passwords do not match
+        if password != confirm_password:
+            return apology("passwords do not match")
 
-        hashed_password = generate_password_hash(password)  # Otherwise hash password
+        # Checking if username is valid&available now handled within check(), from html, using ajax
+        # So move directly to hasing user password
+        hashed_password = generate_password_hash(password)
 
-        is_new_user = len(db.execute(f"SELECT id FROM users WHERE username = '{username}'")) == 0
-        if not is_new_user:
-            print_exaggerated("DO NOTHING")
-            #return apology("username taken")                # Return error if username already in DB
-        else:
-            db.execute("INSERT INTO users(username, hash) VALUES(:username, :hash)",
-                        username=username, hash=hashed_password)
+        # And insert new user into users table in finance db
+        db.execute(f"INSERT INTO users(username, hash) VALUES('{username}', '{hashed_password}')")
 
-            new_user = db.execute(f"SELECT id FROM users WHERE username = '{username}'")
-            if not new_user:
-                return apology("failed to add new user")    # Ensure user added to db
-            else:
-                new_user_id = new_user[0]['id']
-                session["user_id"] = new_user[0]['id']      # And add user session
+        # Then redirect user back to index page (displaying user portfolio defaulted to 10K starting balance)
+        return redirect("/")
 
-        return redirect(url_for("index"))                   # Then redirect back to index.html
-
-    # GET : Navigating to Register page
+    # If user has directly navigated to page, display form fields
     else:
-        return render_template("register.html")             # Navigate user to register page
+        return render_template("register.html")
 
 
 @app.route("/sell", methods=["GET", "POST"])
 @login_required
 def sell():
     """Sell shares of stock"""
-    user_id = session["user_id"]
-    data = db.execute("SELECT symbol FROM portfolios WHERE user_id = :user_id",
-                        user_id = user_id)
-    symbols = [item['symbol'] for item in data]             # Collect symbols for select dropdown menu
 
+    # Whether POST or GET, extract symbols of stocks in current user's current portfolio
+    user_id = session["user_id"]                                                        # Extract current user id
+    data = db.execute(f"SELECT symbol FROM portfolios WHERE user_id = {user_id}")       # Query data of current user
+    symbols = [item['symbol'] for item in data]                                         # Compile symbols of stocks in portfolio
+
+    # If user submitted form, process submitted args
     if request.method == "POST":
-        symbol = request.form.get("symbol")
-        shares_to_sell = int(request.form.get("shares"))
-        if not symbol or not shares_to_sell:                # Return error if inputs missing
-            return apology("invalid symbol/shares data")
 
-        shares_owned = db.execute("SELECT shares FROM portfolios " +
-                                "WHERE user_id = :user_id and symbol = :symbol",
-                                user_id = user_id,
-                                symbol = symbol)[0]['shares']
+        # Extract additional useful data into variables
+        symbol = request.form.get("symbol")                                             # Extract stock symbol for sale
+        shares_to_sell = int(request.form.get("shares"))                                # Extract number of shares for sale
 
+        # Return error if either argument not supplied on submission
+        if not symbol or not shares_to_sell:
+            return apology("Incomplete fields")
+
+        # Return error if number shares of stock in current user portfolio is greater than the number of shares intended for sale
+        shares_owned = db.execute(f"SELECT shares FROM portfolios WHERE user_id = {user_id} and symbol = '{symbol}'")[0]['shares']
         if shares_owned < shares_to_sell:
-            return apology("too many shares")               # Error if trying to sell more than owned
+            return apology("too many shares")
 
+        # Otherwise store the stock info into object variable
+        stock = lookup(symbol)
+        name = stock['name']                                    # From which, extract stock name
+        price_per_share = stock['price']                        # ...and extract stock name
+        earnings_on_sale = price_per_share * shares_to_sell     # ...and calculate earnings on sale
 
-        stock = lookup(symbol)                     # Get stock object
-
-        name = stock['name']                                # Stock name
-
-        price_per_share = stock['price']                    # Stock price per share
-        earnings_on_sale = price_per_share * shares_to_sell # Calculate earnings on sale
-
-        # Log transaction
-        transaction_id = db.execute("INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) " +
-                                    "VALUES (:symbol, :name, :price, :count, :buy_or_sell, :user_id)",
-                                    symbol=symbol,
-                                    name=name,
-                                    price=price_per_share,
-                                    count=shares_to_sell * -1,
-                                    buy_or_sell='s',
-                                    user_id=user_id)
-
+        # Update/log transaction and hold on to its ID returned after db.execute()
+        transaction_id = db.execute(f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('{symbol}', '{name}', {price_per_share}, {shares_to_sell * -1}, 's', {user_id})")
 
         # Update shares in portfolios
-        db.execute("UPDATE portfolios SET shares = shares - :count, transaction_id = :transaction_id, paid_total = paid_total - :earnings " +
-                        "WHERE user_id = :user_id and symbol = :symbol",
-                        count=shares_to_sell,
-                        user_id=session['user_id'],
-                        transaction_id=transaction_id,
-                        earnings=earnings_on_sale,
-                        symbol=symbol)
-
+        db.execute(f"UPDATE portfolios SET shares = shares - {shares_to_sell}, transaction_id = {transaction_id}, paid_total = paid_total - {earnings_on_sale} WHERE user_id = {user_id} and symbol = '{symbol}'")
 
         # Update cash
-        db.execute("UPDATE users SET cash = cash + :earnings WHERE id = :user_id",
-                    earnings = earnings_on_sale,
-                    user_id=user_id)
+        db.execute(f"UPDATE users SET cash = cash + '{earnings_on_sale}' WHERE id = '{user_id}'")
 
+        # Flask success message
         flash("Sold!")
 
         return redirect("/")
 
+    # Else if user navigated to form, display form fields
     else:
         return render_template("sell.html", symbols=symbols)
 
