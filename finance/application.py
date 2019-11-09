@@ -362,8 +362,7 @@ def withdraw_funds():
         # Update cash
         db.execute(f"UPDATE users SET cash = cash - {withdraw_amount} WHERE id = '{user_id}'")
 
-        # Log transaction
-        # Display transaction count with -1, and type to "w" for withdraw action
+        # Log transaction with -1 count, and type to "w" for withdraw action
         # TODO: Update transactions.buy_or_sell to transactions.type
         transaction_id = db.execute(
             f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('CASH', 'CASH', {withdraw_amount}, {-1}, 'w', {user_id})")
@@ -393,8 +392,7 @@ def add_funds():
         # Update cash
         db.execute(f"UPDATE users SET cash = cash + {add_amount} WHERE id = '{user_id}'")
 
-        # Log transaction
-        # Display transaction count with +1, and type to "a" for add action
+        # Log transaction with +1 count, and type to "a" for add action
         # TODO: Update transactions.buy_or_sell to transactions.type
         transaction_id = db.execute(
             f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('CASH', 'CASH', {add_amount}, {1}, 'a', {user_id})")
