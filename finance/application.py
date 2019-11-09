@@ -339,6 +339,7 @@ def sell():
     else:
         return render_template("sell.html", symbols=symbols)
 
+
 @app.route("/withdraw_funds", methods=["GET", "POST"])
 @login_required
 def withdraw_funds():
@@ -372,6 +373,37 @@ def withdraw_funds():
     # If user navigated to page, render the withdraw funds page
     else:
         return render_template("withdraw_funds.html")
+
+
+@app.route("/add_funds", methods=["GET", "POST"])
+@login_required
+def add_funds():
+    """Add funds to account."""
+
+    # If user submitted form, verify form args and render error or data for submitted args
+    if request.method == "POST":
+        user_id = session["user_id"]
+
+        # Get the add amount from form
+        add_amount = float(request.form.get("add_amount"))
+
+        if not add_amount:                 # Return error if input empty
+            return apology("missing amount")
+
+        # Update cash
+        db.execute(f"UPDATE users SET cash = cash + {add_amount} WHERE id = '{user_id}'")
+
+        # Log transaction
+        # Display transaction count with +1, and type to "a" for add action
+        # TODO: Update transactions.buy_or_sell to transactions.type
+        transaction_id = db.execute(
+            f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('CASH', 'CASH', {add_amount}, {1}, 'a', {user_id})")
+
+        return redirect("/")                    # Finally return user to index/portfolio page
+
+    # If user navigated to page, render the withdraw funds page
+    else:
+        return render_template("add_funds.html")
 
 
 def errorhandler(e):
