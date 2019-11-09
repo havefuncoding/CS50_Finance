@@ -10,7 +10,8 @@
 
             {% if company %}
                 <!--Print as "A share of Apple, Inc. (AAPL) costs $257.96."-->
-                <p>A share of {{ company }} ({{ symbol }}) costs {{ price }}.</p>
+                <!--For usd test in check50, https://cs50.stackexchange.com/a/30828-->
+                <p>A share of {{ company }} ({{ symbol }}) costs {{ price | usd }}.</p>
             {% else %}
 
             <div class="form-group">
