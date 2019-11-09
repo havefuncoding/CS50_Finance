@@ -24,6 +24,7 @@ def after_request(response):
     response.headers["Pragma"] = "no-cache"
     return response
 
+
 # Custom filter
 app.jinja_env.filters["usd"] = usd
 
@@ -57,14 +58,15 @@ def index():
     """
 
     # Get user id
-    user_id=session["user_id"]
+    user_id = session["user_id"]
 
     # Query for the cash (remaining) in user table for current session user
     cash_remaining = db.execute(f"SELECT cash FROM users WHERE id = '{user_id}'")
     cash_remaining = cash_remaining[0]['cash']  # Grab just the value from return format, [{'cash': #####}]
 
     # Query for the portfolio of current user
-    portfolio = db.execute(f"SELECT p.symbol, t.name, p.shares, p.paid_total FROM portfolios p left join transactions t on p.transaction_id = t.id WHERE p.user_id = '{user_id}'")
+    portfolio = db.execute(
+        f"SELECT p.symbol, t.name, p.shares, p.paid_total FROM portfolios p left join transactions t on p.transaction_id = t.id WHERE p.user_id = '{user_id}'")
 
     # Calculate cost of portfolio (total amount paid to purchase all stocks in portfolio)
     portfolio_sum = 0
@@ -95,19 +97,25 @@ def buy():
         symbol = stock['symbol']                        # Extract the symbol from stock
         name = stock['name']                            # Extract the company name
         price = stock['price']                          # Extract the per-share price
-        shares = int(request.form.get("shares"))        # Extract the number of shares
-        cost_to_buy = stock['price'] * shares           # Calculate the cost to buy N shares
+        shares = float(request.form.get("shares"))        # Extract the number of shares
+
+        if shares < 0:
+            return apology("enter valid number")        # Return error if number less than 0
+
+        # Calculate the cost to buy N shares
+        cost_to_buy = stock['price'] * shares
 
         # Query the DB for data of session user
         user_id = session["user_id"]                    # Extract the current user id
-        user = db.execute(f"SELECT * FROM users WHERE id = {user_id}") # Store user info into object
+        user = db.execute(f"SELECT * FROM users WHERE id = {user_id}")  # Store user info into object
         available_funds = user[0]['cash']               # Extract the remaining cash of user
 
         if available_funds < cost_to_buy:               # Return error if cash insufficient to make purchase
             return apology("insufficient funds")
 
         # Log transaction, returns transaction id, retain this for future query use
-        transaction_id = db.execute(f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('{symbol}', '{name}', {price}, {shares}, 'b', {user_id})")
+        transaction_id = db.execute(
+            f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('{symbol}', '{name}', {price}, {shares}, 'b', {user_id})")
 
         # Get list of all stocks in user portfolio
         portfolio_stocks = db.execute(f"SELECT symbol FROM portfolios WHERE user_id = {user_id}")
@@ -116,10 +124,12 @@ def buy():
         # If added stock is not new (if stock pre-exists in user portfolio before lates transaction)
         # Then update the purchased shares count and cost invested in purchase(s)
         if stock['symbol'] in portfolio_stock_symbols:
-            db.execute(f"UPDATE portfolios SET shares = shares + {shares}, transaction_id = {transaction_id}, paid_total = paid_total + {cost_to_buy} WHERE user_id = {user_id} and symbol = '{symbol}'")
+            db.execute(
+                f"UPDATE portfolios SET shares = shares + {shares}, transaction_id = {transaction_id}, paid_total = paid_total + {cost_to_buy} WHERE user_id = {user_id} and symbol = '{symbol}'")
         # Otherwise insert new entry for new stock in portfolio
         else:
-            db.execute(f"INSERT INTO portfolios (user_id, transaction_id, symbol, shares, paid_total) VALUES ({user_id}, {transaction_id}, '{symbol}', {shares}, {cost_to_buy})")
+            db.execute(
+                f"INSERT INTO portfolios (user_id, transaction_id, symbol, shares, paid_total) VALUES ({user_id}, {transaction_id}, '{symbol}', {shares}, {cost_to_buy})")
 
         # Update cash
         db.execute(f"UPDATE users SET cash = cash - {cost_to_buy} WHERE id = {user_id}")
@@ -164,6 +174,7 @@ def history():
     # Navigate to history page (containing list of transactions for current user)
     return render_template("history.html", transactions=transactions)
 
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     """Log user in"""
@@ -183,7 +194,7 @@ def login():
             return apology("must provide password", 403)
 
         # Query database for username
-        username=request.form.get("username")
+        username = request.form.get("username")
         rows = db.execute(f"SELECT * FROM users WHERE username = '{username}'")
 
         # Ensure username exists and password is correct
@@ -251,6 +262,11 @@ def register():
         if not username or not password or not confirm_password:
             return apology("missing field(s)")
 
+        # Return error if username already in username already registered
+        username_taken = len(db.execute(f"SELECT username FROM users WHERE username = '{username}'")) > 0
+        if (username_taken):
+            return apology("username taken")
+
         # Return error if passwords do not match
         if password != confirm_password:
             return apology("passwords do not match")
@@ -289,7 +305,7 @@ def sell():
 
         # Return error if either argument not supplied on submission
         if not symbol or not shares_to_sell:
-            return apology("Incomplete fields")
+            return apology("incomplete fields")
 
         # Return error if number shares of stock in current user portfolio is greater than the number of shares intended for sale
         shares_owned = db.execute(f"SELECT shares FROM portfolios WHERE user_id = {user_id} and symbol = '{symbol}'")[0]['shares']
@@ -303,10 +319,12 @@ def sell():
         earnings_on_sale = price_per_share * shares_to_sell     # ...and calculate earnings on sale
 
         # Update/log transaction and hold on to its ID returned after db.execute()
-        transaction_id = db.execute(f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('{symbol}', '{name}', {price_per_share}, {shares_to_sell * -1}, 's', {user_id})")
+        transaction_id = db.execute(
+            f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('{symbol}', '{name}', {price_per_share}, {shares_to_sell * -1}, 's', {user_id})")
 
         # Update shares in portfolios
-        db.execute(f"UPDATE portfolios SET shares = shares - {shares_to_sell}, transaction_id = {transaction_id}, paid_total = paid_total - {earnings_on_sale} WHERE user_id = {user_id} and symbol = '{symbol}'")
+        db.execute(
+            f"UPDATE portfolios SET shares = shares - {shares_to_sell}, transaction_id = {transaction_id}, paid_total = paid_total - {earnings_on_sale} WHERE user_id = {user_id} and symbol = '{symbol}'")
 
         # Update cash
         db.execute(f"UPDATE users SET cash = cash + '{earnings_on_sale}' WHERE id = '{user_id}'")
@@ -319,6 +337,7 @@ def sell():
     # Else if user navigated to form, display form fields
     else:
         return render_template("sell.html", symbols=symbols)
+
 
 def errorhandler(e):
     """Handle error"""
