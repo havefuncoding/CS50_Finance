@@ -97,7 +97,7 @@ def buy():
         symbol = stock['symbol']                        # Extract the symbol from stock
         name = stock['name']                            # Extract the company name
         price = stock['price']                          # Extract the per-share price
-        shares = float(request.form.get("shares"))        # Extract the number of shares
+        shares = float(request.form.get("shares"))      # Extract the number of shares
 
         if shares < 0:
             return apology("enter valid number")        # Return error if number less than 0
@@ -165,7 +165,8 @@ def history():
     user_id = session["user_id"]
 
     # Get transactions for current user
-    transactions = db.execute(f"SELECT symbol, count, price, timestamp FROM transactions WHERE user_id = {user_id}")
+    transactions = db.execute(
+        f"SELECT symbol, count, price, timestamp FROM transactions WHERE user_id = {user_id} order by timestamp desc")
 
     # String-format 'price' data to 2 decimal places for html display
     for transaction in transactions:
@@ -327,7 +328,7 @@ def sell():
             f"UPDATE portfolios SET shares = shares - {shares_to_sell}, transaction_id = {transaction_id}, paid_total = paid_total - {earnings_on_sale} WHERE user_id = {user_id} and symbol = '{symbol}'")
 
         # Update cash
-        db.execute(f"UPDATE users SET cash = cash + '{earnings_on_sale}' WHERE id = '{user_id}'")
+        db.execute(f"UPDATE users SET cash = cash + {earnings_on_sale} WHERE id = '{user_id}'")
 
         # Flask success message
         flash("Sold!")
@@ -337,6 +338,40 @@ def sell():
     # Else if user navigated to form, display form fields
     else:
         return render_template("sell.html", symbols=symbols)
+
+@app.route("/withdraw_funds", methods=["GET", "POST"])
+@login_required
+def withdraw_funds():
+    """Add funds to account."""
+
+    # If user submitted form, verify form args and render error or data for submitted args
+    if request.method == "POST":
+        user_id = session["user_id"]
+
+        # Query for current_balance, db.execute() returns format, [{'cash': 5452.37}]
+        current_balance = db.execute(f"SELECT cash FROM users where id = {user_id}")[0]['cash']
+        withdraw_amount = float(request.form.get("withdraw_amount"))
+
+        if not withdraw_amount:                 # Return error if input empty
+            return apology("missing amount")
+
+        if withdraw_amount > current_balance:   # Return error if remaining cash less than withdraw amount
+            return apology("maximum withdraw amount is " + current_balance)
+
+        # Update cash
+        db.execute(f"UPDATE users SET cash = cash - {withdraw_amount} WHERE id = '{user_id}'")
+
+        # Log transaction
+        # Display transaction count with -1, and type to "w" for withdraw action
+        # TODO: Update transactions.buy_or_sell to transactions.type
+        transaction_id = db.execute(
+            f"INSERT INTO transactions (symbol, name, price, count, buy_or_sell, user_id) VALUES ('CASH', 'CASH', {withdraw_amount}, {-1}, 'w', {user_id})")
+
+        return redirect("/")                    # Finally return user to index/portfolio page
+
+    # If user navigated to page, render the withdraw funds page
+    else:
+        return render_template("withdraw_funds.html")
 
 
 def errorhandler(e):
