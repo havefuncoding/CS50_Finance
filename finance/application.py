@@ -342,7 +342,7 @@ def sell():
 @app.route("/withdraw_funds", methods=["GET", "POST"])
 @login_required
 def withdraw_funds():
-    """Add funds to account."""
+    """Withdraw funds from account."""
 
     # If user submitted form, verify form args and render error or data for submitted args
     if request.method == "POST":
