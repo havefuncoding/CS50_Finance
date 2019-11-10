@@ -5,20 +5,40 @@
 {% endblock %}
 
 
-    {% block main %}
-        <form action="/quote" method="post">
+{% block main %}
+    <form action="/quote" method="post">
 
-            {% if company %}
-                <!--Print as "A share of Apple, Inc. (AAPL) costs $257.96."-->
-                <!--For usd test in check50, https://cs50.stackexchange.com/a/30828-->
-                <p>A share of {{ company }} ({{ symbol }}) costs {{ price | usd }}.</p>
-            {% else %}
+        {% if company %}
+            <!--Print as "A share of Apple, Inc. (AAPL) costs $257.96."-->
+            <!--For usd test in check50, https://cs50.stackexchange.com/a/30828-->
+            <p>A share of {{ company }} ({{ symbol }}) costs {{ price | usd }}.</p>
+        {% else %}
 
-            <div class="form-group">
-                <input autocomplete="off" autofocus class="form-control" name="symbol" placeholder="Symbol" type="text">
-            </div>
-            <button class="btn btn-primary" type="submit">Quote</button>
-            {% endif %}
+        <div class="form-group">
+            <input autocomplete="off" autofocus class="form-control" name="symbol" placeholder="Symbol" type="text" onfocusout="check()">
+            <p class="status"></p>
+        </div>
+        <button class="btn btn-primary" type="submit">Quote</button>
+        {% endif %}
 
-        </form>
-    {% endblock %}
+    </form>
+
+    <script>
+        function check() {
+            var symbol = document.querySelector('input[name="symbol"]');
+            var status = document.querySelector('p[class="status"]');
+
+            $.get("/check_symbol?symbol="+symbol.value, function(data) {
+                if (data) {
+                    status.innerHTML = data;
+                }
+                else {
+                    status.innerHTML = "Invalid symbol";
+                    event.preventDefault();
+                }
+            })
+        }
+    </script>
+{% endblock %}
+
+

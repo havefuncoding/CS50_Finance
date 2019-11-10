@@ -156,6 +156,24 @@ def check():
     return jsonify(status)
 
 
+@app.route("/check_symbol", methods=["GET"])
+def check_quote():
+    """Return true if username available, else false, in JSON format"""
+
+    # Get symbol from form
+    symbol = request.args.get("symbol")
+
+    # Lookup symbol
+    # Quote response example, {'name': 'Apple, Inc.', 'price': 257.955, 'symbol': 'AAPL'}
+    stock = lookup(symbol)
+
+    # Return stock company name if symbol is valid else return False
+    if stock:
+        return jsonify(stock['name'])
+    else:
+        return jsonify(False)
+
+
 @app.route("/history")
 @login_required
 def history():
@@ -402,6 +420,29 @@ def add_funds():
     # If user navigated to page, render the withdraw funds page
     else:
         return render_template("add_funds.html")
+
+
+@app.route("/change_username", methods=["GET", "POST"])
+@login_required
+def change_username():
+    """Add funds to account."""
+
+    # If POST, check and update username
+    if request.method == "POST":
+        user_id = session["user_id"]
+
+        current_username = db.execute(f"SELECT username FROM users WHERE id = {user_id}")[0]['username']
+        print_exaggerated(current_username, "Current username: ")
+
+        new_username = request.form.get("username")
+        print_exaggerated(new_username, "New username: ")
+
+
+        return redirect("/")
+
+    # If GET, navigate user to change_username page
+    else:
+        return render_template("change_username.html")
 
 
 def errorhandler(e):
