@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Change Username
+{% endblock %}
+
+{% block main %}
+    <form action="/change_username" method="post">
+        <div class="form-group">
+            <input autofocus class="form-control" name="username" placeholder="New Username" type="text" onfocusout="check()">
+            <p class="status"></p>
+        </div>
+        <div class="form-group">
+            <input class="form-control" name="password" placeholder="Password" type="password">
+        </div>
+        <button class="btn btn-primary" type="submit">Update</button>
+    </form>
+
+    <script>
+        function check() {
+            var username = document.querySelector('input[name="username"]');
+            var status = document.querySelector('p[class="status"]');
+
+            $.get("/check?username="+username.value, function(data){
+                if (data == true){
+                    status.innerHTML = "Username " + username.value +" available";
+                }
+                else {
+                    status.innerHTML = "Username " + username.value + " not available";
+                    event.preventDefault();
+                }
+            })
+        }
+    </script>
+{% endblock %}
+

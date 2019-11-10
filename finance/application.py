@@ -432,11 +432,19 @@ def change_username():
         user_id = session["user_id"]
 
         current_username = db.execute(f"SELECT username FROM users WHERE id = {user_id}")[0]['username']
-        print_exaggerated(current_username, "Current username: ")
-
         new_username = request.form.get("username")
-        print_exaggerated(new_username, "New username: ")
 
+        new_username_available = len(db.execute(f"SELECT id FROM users WHERE username = '{new_username}'")) == 0
+        if new_username_available:
+            db.execute(f"UPDATE users SET username = '{new_username}' WHERE id = {user_id}")
+
+        # Print the user id data from users for testing
+        data = db.execute(f"SELECT * from users WHERE id = {user_id}")
+        print_exaggerated(data, "DATA: ")
+        # Returns
+        """
+        DATA:  [{'id': 21, 'username': 'nov1', 'hash': 'pbkdf2:sha256:150000$FDog8W3d$acdfcb87409a2bd7bae913a10ce53ce8c804d9c7ba8b56a8cfd6c7ea192af6ae', 'cash': 3085.8599999999988}]
+        """
 
         return redirect("/")
 
