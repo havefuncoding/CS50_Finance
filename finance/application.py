@@ -425,7 +425,7 @@ def add_funds():
 @app.route("/change_username", methods=["GET", "POST"])
 @login_required
 def change_username():
-    """Add funds to account."""
+    """Change username"""
 
     # If POST, check and update username
     if request.method == "POST":
@@ -465,6 +465,43 @@ def change_username():
     # If GET, navigate user to change_username page
     else:
         return render_template("change_username.html")
+
+
+@app.route("/change_password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    """Change password"""
+
+    # If POST, check and update username
+    if request.method == "POST":
+
+        # Get the current user's id from session
+        user_id = session["user_id"]
+
+        # Get data for current user from backend
+        user_entry = db.execute(f"SELECT * from users WHERE id = {user_id}")[0]
+
+        # Check that user inputs current password correctly
+        password_hash_in_db = user_entry["hash"]
+        password_hashed_from_form = generate_password_hash(request.form.get("password_old"))
+        if password_hash_in_db != password_hashed_from_form:
+            flash("Failed to validate current password")
+            return redirect(url_for("change_password"))
+
+        # Check that new password is different from current password, via their hashes
+        new_password_hashed_from_form = generate_password_hash(request.form.get("password_new"))
+        if password_hashed_from_form == new_password_hashed_from_form:
+            flash("New password cannot be same as the old password")
+            return redirect(url_for("change_password"))
+
+        # Otherwise print something else for testing
+        flash("Looks good")
+        return redirect(url_for("change_password"))
+
+
+    # If GET, navigate user to change_password page
+    else:
+        return render_template("change_password.html")
 
 
 def errorhandler(e):
