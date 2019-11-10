@@ -481,21 +481,25 @@ def change_password():
         # Get data for current user from backend
         user_entry = db.execute(f"SELECT * from users WHERE id = {user_id}")[0]
 
-        # Check that user inputs current password correctly
-        password_hash_in_db = user_entry["hash"]
-        password_hashed_from_form = generate_password_hash(request.form.get("password_old"))
+        # Extract current and new passwords from form
+        form_current = request.form.get("password_old")
+        form_new = request.form.get("password_new")
 
-        if not check_password_hash(user_entry["hash"], request.form.get("password_old")):
+        # Check that user inputs current password correctly
+        if not check_password_hash(user_entry["hash"], form_current):
             flash("Failed to verify current password. Try again.")
             return redirect(url_for("change_password"))
 
-        if check_password_hash(user_entry["hash"], request.form.get("password_new")):
+        # Check that new password is different from current password
+        if check_password_hash(user_entry["hash"], form_new):
             flash("New password cannot be same as old password")
             return redirect(url_for("change_password"))
 
-        # Otherwise print something else for testing
-        flash("Looks good")
-        return redirect(url_for("change_password"))
+        # After checks satisfied, update database
+        new_password_hash = generate_password_hash(form_new)
+        db.execute(f"UPDATE users SET hash = '{new_password_hash}' WHERE id = {user_id}")
+        flash("Password updated successfully")
+        return redirect("/")
 
 
     # If GET, navigate user to change_password page
