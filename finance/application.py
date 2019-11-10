@@ -484,14 +484,13 @@ def change_password():
         # Check that user inputs current password correctly
         password_hash_in_db = user_entry["hash"]
         password_hashed_from_form = generate_password_hash(request.form.get("password_old"))
-        if password_hash_in_db != password_hashed_from_form:
-            flash("Failed to validate current password")
+
+        if not check_password_hash(user_entry["hash"], request.form.get("password_old")):
+            flash("Failed to verify current password. Try again.")
             return redirect(url_for("change_password"))
 
-        # Check that new password is different from current password, via their hashes
-        new_password_hashed_from_form = generate_password_hash(request.form.get("password_new"))
-        if password_hashed_from_form == new_password_hashed_from_form:
-            flash("New password cannot be same as the old password")
+        if check_password_hash(user_entry["hash"], request.form.get("password_new")):
+            flash("New password cannot be same as old password")
             return redirect(url_for("change_password"))
 
         # Otherwise print something else for testing
