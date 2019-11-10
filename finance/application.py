@@ -61,7 +61,7 @@ def index():
     user_id = session["user_id"]
 
     # Query for the cash (remaining) in user table for current session user
-    cash_remaining = db.execute(f"SELECT cash FROM users WHERE id = '{user_id}'")
+    cash_remaining = db.execute(f"SELECT cash FROM users WHERE id = {user_id}")
     cash_remaining = cash_remaining[0]['cash']  # Grab just the value from return format, [{'cash': #####}]
 
     # Query for the portfolio of current user
@@ -429,22 +429,36 @@ def change_username():
 
     # If POST, check and update username
     if request.method == "POST":
+
+        # Get the current user's id from session
         user_id = session["user_id"]
 
-        current_username = db.execute(f"SELECT username FROM users WHERE id = {user_id}")[0]['username']
+        # Get data for current user from backend
+        user_entry = db.execute(f"SELECT * from users WHERE id = {user_id}")[0]
+
+        # Get the current and new usernames
+        current_username = user_entry["username"]
         new_username = request.form.get("username")
 
+        # Check if new username is available
         new_username_available = len(db.execute(f"SELECT id FROM users WHERE username = '{new_username}'")) == 0
-        if new_username_available:
-            db.execute(f"UPDATE users SET username = '{new_username}' WHERE id = {user_id}")
 
-        # Print the user id data from users for testing
-        data = db.execute(f"SELECT * from users WHERE id = {user_id}")
-        print_exaggerated(data, "DATA: ")
-        # Returns
-        """
-        DATA:  [{'id': 21, 'username': 'nov1', 'hash': 'pbkdf2:sha256:150000$FDog8W3d$acdfcb87409a2bd7bae913a10ce53ce8c804d9c7ba8b56a8cfd6c7ea192af6ae', 'cash': 3085.8599999999988}]
-        """
+        # Validate password once more before updating in backend
+        password_verified = check_password_hash(user_entry["hash"], request.form.get("password"))
+        print_exaggerated(password_verified, "Check if passwords match: ")
+
+        if not new_username_available:
+            flash("Username already taken")
+            return redirect(url_for("change_username"))
+
+        if not password_verified:
+            flash("Password invalid")
+            return redirect(url_for("change_username"))
+
+        # If new username available and password verified, then upate in backend, and flash success message
+        if new_username_available and password_verified:
+            db.execute(f"UPDATE users SET username = '{new_username}' WHERE id = {user_id}")
+            flash("Username updated successfully!")
 
         return redirect("/")
 
