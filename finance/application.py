@@ -174,6 +174,17 @@ def check_quote():
         return jsonify(False)
 
 
+@app.route("/get_account_name", methods=["GET"])
+def get_account_name():
+    """Return the username for current session user id"""
+    account_name = db.execute(f"SELECT username FROM users WHERE id = {session['user_id']}")[0]["username"]
+
+    if account_name:
+        return jsonify(account_name)
+    else:
+        return jsonify(False)
+
+
 @app.route("/history")
 @login_required
 def history():
