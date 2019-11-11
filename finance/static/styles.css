@@ -51,3 +51,9 @@ tfoot
     /* make portfolio page totals-sum bold */
     font-weight: bold;
 }
+
+#history_length, #history_info {
+    /*make history page datatable results# and showing# align left*/
+    float: left;
+}
+
