@@ -23,12 +23,10 @@
         <title>C$50 Finance: {% block title %}{% endblock %}</title>
 
          <script>
-
             document.addEventListener("DOMContentLoaded", function getAccountName() {
-                var symbol = "AAPL"
                 var accountName = document.querySelector('#accountName');
 
-                $.get("/get_account_name?symbol="+symbol, function(data) {
+                $.get("/get_account_name", function(data) {
                     if (data) {
                         accountName.innerHTML = data;
                     }
