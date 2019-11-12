@@ -61,3 +61,37 @@ def lookup(symbol):
 def usd(value):
     """Format value as USD."""
     return f"${value:,.2f}"
+
+
+###########################  Additional Helpers ###################################
+
+def password_works(password):
+    """Password should comprise 8-64 characters inclusive, with
+    at least 1 of each: lowercase, uppercase, number, special character"""
+
+    if len(password) < 8 or len(password) > 64:
+        return False
+
+    contains_lowercase = False
+    contains_uppercase = False
+    contains_number = False
+    contains_special = False
+
+    for char in password:
+        ascii_position = ord(char)
+        # 32   is ' '   to   64   is '@'
+        # 91   is '['   to   96   is '`'
+        # 123  is '{'   to   126  is '~'
+        if ascii_position < 32 or ascii_position > 126:
+            return False
+
+        contains_lowercase = True if char.islower() else contains_lowercase
+        contains_uppercase = True if char.isupper() else contains_uppercase
+        contains_number = True if char.isdigit() else contains_number
+
+        if ((ascii_position >= 32 and ascii_position <= 64) or
+            (ascii_position >= 91 and ascii_position <= 96) or
+            (ascii_position >= 123 and ascii_position <= 126)):
+            contains_special = True
+
+    return contains_lowercase and contains_uppercase and contains_number and contains_special

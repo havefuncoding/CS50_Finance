@@ -8,7 +8,7 @@ from tempfile import mkdtemp
 from werkzeug.exceptions import default_exceptions, HTTPException, InternalServerError
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from helpers import apology, login_required, lookup, usd
+from helpers import apology, login_required, lookup, usd, password_works
 
 # Configure application
 app = Flask(__name__)
@@ -504,6 +504,12 @@ def change_password():
         # Check that new password is different from current password
         if check_password_hash(user_entry["hash"], form_new):
             flash("New password cannot be same as old password")
+            return redirect(url_for("change_password"))
+
+        # Check that password satisfies requirements, 8-64 chars in length inclusive,
+        # with at least 1 of each: lower case, upper case, number, special character
+        if not password_works(form_new):
+            flash("New password does not satisfy: 8-64 length inclusive, lower, upper, number, special char")
             return redirect(url_for("change_password"))
 
         # After checks satisfied, update database
