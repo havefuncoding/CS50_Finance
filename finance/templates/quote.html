@@ -4,6 +4,12 @@
     Quote
 {% endblock %}
 
+{% block content %}
+    <script>
+        getCompanyName();
+    </script>
+{% endblock %}
+
 
 {% block main %}
     <form action="/quote" method="post">
@@ -15,7 +21,7 @@
         {% else %}
 
         <div class="form-group">
-            <input autocomplete="off" autofocus class="form-control" name="symbol" placeholder="Symbol" type="text" onfocusout="check()">
+            <input autocomplete="off" autofocus class="form-control" name="symbol" placeholder="Symbol" type="text" onfocusout="getCompanyNameFromFile()">
             <p class="status"></p>
         </div>
         <button class="btn btn-primary" type="submit">Quote</button>
@@ -24,21 +30,6 @@
     </form>
 
     <script>
-        function check() {
-            var symbol = document.querySelector('input[name="symbol"]');
-            var status = document.querySelector('p[class="status"]');
-
-            $.get("/check_symbol?symbol="+symbol.value, function(data) {
-                if (data) {
-                    status.innerHTML = data;
-                }
-                else {
-                    status.innerHTML = "Invalid symbol";
-                    event.preventDefault();
-                }
-            })
-        }
+        function getCompanyNameFromFile() { getCompanyName(); }
     </script>
 {% endblock %}
-
-

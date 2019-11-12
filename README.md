@@ -24,6 +24,8 @@ $ export API_KEY=<your key>
 
 #### References:
 
+- DataTables() based on [Bootstrap4 documentation](https://datatables.net/examples/styling/bootstrap4)
+
 - Use regex to verify password [StackOverflow](https://stackoverflow.com/a/2990682/4443518)
 ```sh
 import re
